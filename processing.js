@@ -158,8 +158,6 @@
     TAU:        2 * Math.PI,
     HALF_TAU:   MATH.PI / 2,
     TWO_TAU:    MATH.PI * 2,
-    THIRD_TAU   MATH.PI / 3,
-    QUARTER_PI  MATH.PI / 4,
     
     DEG_TO_RAD: Math.PI / 180,
     RAD_TO_DEG: 180 / Math.PI,
