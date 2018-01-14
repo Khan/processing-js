@@ -16762,59 +16762,61 @@
       curContext.drawElements(curContext.TRIANGLES, 6, curContext.UNSIGNED_SHORT, 0);
     };
 
-
     /**
-    * unbounded text function (z is an optional argument)
-    */
-    function text$4(str, x, y, z) {
-      var lines, linesCount;
-      if(str.indexOf('\n') < 0) {
-        lines = [str];
-        linesCount = 1;
-      } else {
-        lines = str.split(/\r?\n/g);
-        linesCount = lines.length;
-      }
-      // handle text line-by-line
-
+     * draw text lines which are already at correct length
+     */
+    function text$lines(lines, x, y, z) {
+      var lineCount = lines.length;
       var yOffset = 0;
       if(verticalTextAlignment === PConstants.TOP) {
         yOffset = curTextAscent + curTextDescent;
       } else if(verticalTextAlignment === PConstants.CENTER) {
-        yOffset = curTextAscent/2 - (linesCount-1)*curTextLeading/2;
+        yOffset = curTextAscent/2 - (lineCount-1)*curTextLeading/2;
       } else if(verticalTextAlignment === PConstants.BOTTOM) {
-        yOffset = -(curTextDescent + (linesCount-1)*curTextLeading);
+        yOffset = -(curTextDescent + (lineCount-1)*curTextLeading);
       }
 
-      for(var i=0;i<linesCount;++i) {
+      for(var i=0;i<lineCount;++i) {
         var line = lines[i];
         drawing.text$line(line, x, y + yOffset, z, horizontalTextAlignment);
         yOffset += curTextLeading;
       }
     }
 
+    /**
+     * unbounded text function (z is an optional argument)
+     */
+    function text$4(str, x, y, z) {
+      var lines;
+      if(str.indexOf('\n') < 0) {
+        lines = [str];
+      } else {
+        lines = str.split(/\r?\n/g);
+      }
+      text$lines(lines, x, y, z);
+    }
 
     /**
-    * box-bounded text function (z is an optional argument)
-    */
+     * box-bounded text function (z is an optional argument)
+     */
     function text$6(str, x, y, width, height, z) {
       // 'fail' on 0-valued dimensions
       if (str.length === 0 || width === 0 || height === 0) {
         return;
       }
       // also 'fail' if the text height is larger than the bounding height
-      if(curTextSize > height) {
+      var textHeight = curTextAscent + curTextDescent;
+      if (textHeight > height) {
         return;
       }
 
       var spaceMark = -1;
       var start = 0;
       var lineWidth = 0;
-      var drawCommands = [];
+      var lines = [];
 
       // run through text, character-by-character
-      for (var charPos=0, len=str.length; charPos < len; charPos++)
-      {
+      for (var charPos = 0, len = str.length; charPos < len && textHeight <= height; charPos++) {
         var currentChar = str[charPos];
         var spaceChar = (currentChar === " ");
         var letterWidth = curTextFont.measureTextWidth(currentChar);
@@ -16826,8 +16828,7 @@
         }
 
         // if we're looking at a newline, or the text no longer fits, push the section that fit into the drawcommand list
-        else
-        {
+        else {
           if (spaceMark + 1 === start) {
             if(charPos>0) {
               // Whole line without spaces so far.
@@ -16839,59 +16840,29 @@
           }
 
           if (currentChar === "\n") {
-            drawCommands.push({text:str.substring(start, charPos), width: lineWidth});
+            lines.push(str.substring(start, charPos));
             start = charPos + 1;
           } else {
             // current is not a newline, which means the line doesn't fit in box. push text.
             // In Processing 1.5.1, the space is also pushed, so we push up to spaceMark+1,
             // rather than up to spaceMark, as was the case for Processing 1.5 and earlier.
-            drawCommands.push({text:str.substring(start, spaceMark+1), width: lineWidth});
+            lines.push(str.substring(start, spaceMark+1));
             start = spaceMark + 1;
           }
 
           // newline + return
           lineWidth = 0;
           charPos = start - 1;
+          textHeight += curTextLeading;
         }
       }
 
       // push the remaining text
-      if (start < len) {
-        drawCommands.push({text:str.substring(start), width: lineWidth});
+      if (start < len && textHeight <= height) {
+        lines.push(str.substring(start));
       }
 
-      // resolve horizontal alignment
-      var xOffset = 1,
-          yOffset = curTextAscent;
-      if (horizontalTextAlignment === PConstants.CENTER) {
-        xOffset = width/2;
-      } else if (horizontalTextAlignment === PConstants.RIGHT) {
-        xOffset = width;
-      }
-
-      // resolve vertical alignment
-      var linesCount = drawCommands.length,
-          visibleLines = Math.min(linesCount, Math.floor(height/curTextLeading));
-      if(verticalTextAlignment === PConstants.TOP) {
-        yOffset = curTextAscent + curTextDescent;
-      } else if(verticalTextAlignment === PConstants.CENTER) {
-        yOffset = (height/2) - curTextLeading * (visibleLines/2 - 1);
-      } else if(verticalTextAlignment === PConstants.BOTTOM) {
-        yOffset = curTextDescent + curTextLeading;
-      }
-
-      var command,
-          drawCommand,
-          leading;
-      for (command = 0; command < linesCount; command++) {
-        leading = command * curTextLeading;
-        // stop if not enough space for one more line draw
-        if (yOffset + leading > height - curTextDescent) {
-          break;
-        }
-        drawCommand = drawCommands[command];
-        drawing.text$line(drawCommand.text, x + xOffset, y + yOffset + leading, z, horizontalTextAlignment);
-      }
+      text$lines(lines, x, y, z);
     }
 
     /**
